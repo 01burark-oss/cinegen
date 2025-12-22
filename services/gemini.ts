@@ -8,7 +8,7 @@ export class RecommenderService {
    * Translates a given text into Turkish using the Gemini model.
    */
   static async translateDescription(text: string): Promise<string | null> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY as string });
     
     try {
       const response = await ai.models.generateContent({
@@ -37,7 +37,7 @@ export class RecommenderService {
     minImdb: number = 6.6,
     isUnderratedOnly: boolean = true
   ): Promise<Recommendation[]> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY as string });
 
     const highRated = library.filter(l => l.rating >= 7);
     const likedSeriesList = highRated.length > 0 
