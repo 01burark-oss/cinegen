@@ -1,0 +1,5 @@
+{
+  "name": "TV Recommendation Engine MVP",
+  "description": "An experimental TV series recommendation engine focusing on narrative signals over genres, featuring long-term taste vs short-term intent weighting.",
+  "requestFramePermissions": []
+}

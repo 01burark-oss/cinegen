@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CINE_GEN | Discovery Pipeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+      
+      :root {
+        --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+        --stremio-purple: #5A4AF4;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background-color: #0f1115;
+        color: #e5e5e5;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Strict Zero-Scroll */
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .font-sans { font-family: var(--font-sans); }
+      
+      /* Smooth custom scrollbars */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .custom-scroll::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      /* Premium Stremio-style Range Slider */
+      input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      input[type=range]:focus {
+        outline: none;
+      }
+
+      /* Webkit Browsers (Chrome, Safari, Edge) */
+      input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 8px;
+        background: #1a1c23;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.05);
+        transition: all 0.2s ease;
+      }
+
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 24px;
+        width: 24px;
+        border-radius: 50%;
+        background: var(--stremio-purple);
+        cursor: pointer;
+        margin-top: -9px; /* Centers thumb on track */
+        border: 3px solid #ffffff;
+        box-shadow: 0 0 20px rgba(90, 74, 244, 0.6), 0 0 0 4px rgba(90, 74, 244, 0.1);
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      input[type=range]:active::-webkit-slider-thumb {
+        transform: scale(1.2);
+        background: #ffffff;
+        border-color: var(--stremio-purple);
+      }
+
+      /* Firefox */
+      input[type=range]::-moz-range-track {
+        width: 100%;
+        height: 8px;
+        background: #1a1c23;
+        border-radius: 10px;
+      }
+
+      input[type=range]::-moz-range-thumb {
+        height: 24px;
+        width: 24px;
+        border-radius: 50%;
+        background: var(--stremio-purple);
+        border: 3px solid #ffffff;
+        box-shadow: 0 0 20px rgba(90, 74, 244, 0.6);
+        cursor: pointer;
+      }
+
+      /* Star clipping for fractional rating */
+      .star-half-left {
+        clip-path: polygon(0 0, 50% 0, 50% 100%, 0% 100%);
+      }
+      .star-half-right {
+        clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%);
+      }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
