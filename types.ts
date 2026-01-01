@@ -67,3 +67,24 @@ export interface MemoryItem {
     embedding: number[];
   };
 }
+
+export interface BlockedSeries {
+  tmdb_id: number;
+  title: string;
+}
+
+export interface SelectedShow {
+  id?: number;
+  tmdb_id?: number;
+  name?: string;
+  title?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  vote_average?: number;
+  imdb_rating?: number;
+  first_air_date?: string;
+  overview?: string;
+  reasoning?: string;
+  scores?: Recommendation['scores'];
+  match_score?: number;
+}

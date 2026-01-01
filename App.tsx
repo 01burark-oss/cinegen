@@ -1,11 +1,19 @@
 
-import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
-import { LibraryItem, Recommendation } from './types';
+import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import { LibraryItem, Recommendation, BlockedSeries, SelectedShow } from './types';
 import { RecommenderService } from './services/gemini';
 import { getPopularTV, getTVDetails, getGenres, getDiscoverTV, TMDBShow, TMDBGenre } from './services/tmdb';
 import DesktopLayout from './components/DesktopLayout';
 import MobileLayout from './components/MobileLayout';
 import { AlertTriangle, Monitor, Smartphone } from 'lucide-react';
+
+// Constants for magic numbers
+const MIN_SEARCH_QUERY_LENGTH = 3;
+const DEFAULT_MIN_IMDB_RATING = 6.6;
+const MIN_IMDB_RATING = 6.0;
+const MAX_IMDB_RATING = 9.5;
+const IMDB_RATING_STEP = 0.1;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const TRANSLATIONS = {
   EN: {
@@ -183,7 +191,7 @@ const AppContent: React.FC = () => {
   const [ratedSeries, setRatedSeries] = useState<LibraryItem[]>([]);
   const [watchList, setWatchList] = useState<LibraryItem[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<LibraryItem[]>([]);
-  const [blockedSeries, setBlockedSeries] = useState<any[]>([]);
+  const [blockedSeries, setBlockedSeries] = useState<BlockedSeries[]>([]);
   
   const [seedShow, setSeedShow] = useState('');
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -195,11 +203,14 @@ const AppContent: React.FC = () => {
   const [analyzingBackdrop, setAnalyzingBackdrop] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBShow[]>([]);
-  const [selectedShow, setSelectedShow] = useState<any>(null);
-  const [selectedShowDetails, setSelectedShowDetails] = useState<any>(null);
+  const [selectedShow, setSelectedShow] = useState<SelectedShow | null>(null);
+  const [selectedShowDetails, setSelectedShowDetails] = useState<TMDBShow | null>(null);
 
   // Filtreleme State'leri
-  const [minImdb, setMinImdb] = useState(6.6);
+  const [minImdb, setMinImdb] = useState(DEFAULT_MIN_IMDB_RATING);
+  
+  // Search debounce ref
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isUnderratedOnly, setIsUnderratedOnly] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState('popularity.desc');
@@ -214,25 +225,63 @@ const AppContent: React.FC = () => {
       setShowModeSelection(false);
     }
 
-    const savedRated = localStorage.getItem('ratedSeries');
-    const savedWatch = localStorage.getItem('watchList');
-    const savedBlocked = localStorage.getItem('blockedSeries');
-    if (savedRated) setRatedSeries(JSON.parse(savedRated));
-    if (savedWatch) setWatchList(JSON.parse(savedWatch));
-    if (savedBlocked) setBlockedSeries(JSON.parse(savedBlocked));
+    try {
+      const savedRated = localStorage.getItem('ratedSeries');
+      const savedWatch = localStorage.getItem('watchList');
+      const savedBlocked = localStorage.getItem('blockedSeries');
+      const savedSuggestions = localStorage.getItem('aiSuggestions');
+      
+      if (savedRated) {
+        const parsed = JSON.parse(savedRated);
+        if (Array.isArray(parsed)) setRatedSeries(parsed);
+      }
+      if (savedWatch) {
+        const parsed = JSON.parse(savedWatch);
+        if (Array.isArray(parsed)) setWatchList(parsed);
+      }
+      if (savedBlocked) {
+        const parsed = JSON.parse(savedBlocked);
+        if (Array.isArray(parsed)) setBlockedSeries(parsed);
+      }
+      if (savedSuggestions) {
+        const parsed = JSON.parse(savedSuggestions);
+        if (Array.isArray(parsed)) setAiSuggestions(parsed);
+      }
+    } catch (e) {
+      console.error('Error parsing localStorage data:', e);
+      // Clear corrupted data
+      localStorage.removeItem('ratedSeries');
+      localStorage.removeItem('watchList');
+      localStorage.removeItem('blockedSeries');
+      localStorage.removeItem('aiSuggestions');
+    }
 
-    getGenres(tmdbLangCode).then(setGenres);
+    getGenres(tmdbLangCode)
+      .then(setGenres)
+      .catch(err => {
+        console.error('Error fetching genres:', err);
+        setGenres([]);
+      });
   }, [tmdbLangCode]);
 
   useEffect(() => {
     localStorage.setItem('ratedSeries', JSON.stringify(ratedSeries));
     localStorage.setItem('watchList', JSON.stringify(watchList));
     localStorage.setItem('blockedSeries', JSON.stringify(blockedSeries));
-  }, [ratedSeries, watchList, blockedSeries]);
+    localStorage.setItem('aiSuggestions', JSON.stringify(aiSuggestions));
+  }, [ratedSeries, watchList, blockedSeries, aiSuggestions]);
 
   useEffect(() => {
-    if (selectedShow) getTVDetails(selectedShow.tmdb_id || selectedShow.id).then(setSelectedShowDetails);
-    else setSelectedShowDetails(null);
+    if (selectedShow) {
+      getTVDetails(selectedShow.tmdb_id || selectedShow.id)
+        .then(setSelectedShowDetails)
+        .catch(err => {
+          console.error('Error fetching show details:', err);
+          setSelectedShowDetails(null);
+        });
+    } else {
+      setSelectedShowDetails(null);
+    }
   }, [selectedShow]);
 
   // Catalog fetching logic based on genres/filters
@@ -242,11 +291,25 @@ const AppContent: React.FC = () => {
         .then(shows => {
           if (catalogPage === 1) setCatalogShows(shows);
           else setCatalogShows(prev => [...prev, ...shows]);
+        })
+        .catch(err => {
+          console.error('Error fetching catalog:', err);
+          setCatalogShows([]);
         });
-    } else if (catalogShows.length === 0) {
-      getPopularTV().then(setCatalogShows);
     }
   }, [selectedGenreId, catalogPage, activeTab, tmdbLangCode, sortBy]);
+
+  // Separate effect for initial popular TV load
+  useEffect(() => {
+    if (activeTab !== 'CATALOG' && catalogShows.length === 0) {
+      getPopularTV()
+        .then(setCatalogShows)
+        .catch(err => {
+          console.error('Error fetching popular TV:', err);
+          setCatalogShows([]);
+        });
+    }
+  }, [activeTab]);
 
   const handleModeSelect = (mode: 'desktop' | 'mobile') => {
     setIsDesktopMode(mode === 'desktop');
@@ -260,16 +323,20 @@ const AppContent: React.FC = () => {
     localStorage.setItem('appViewMode', newMode ? 'desktop' : 'mobile');
   };
 
-  const handleRate = (show: any, rating: number) => {
+  const handleRate = (show: SelectedShow | TMDBShow, rating: number) => {
     const id = show.tmdb_id || show.id;
-    const newItem = { 
+    if (!id) {
+      console.error('Cannot rate show: missing ID');
+      return;
+    }
+    const newItem: LibraryItem = { 
       id: id.toString(), 
       tmdb_id: id, 
-      title: show.name || show.title, 
+      title: (show as any).name || (show as any).title || 'Unknown', 
       rating, 
       poster_path: show.poster_path, 
       added_at: Date.now(),
-      vote_average: show.vote_average || show.imdb_rating
+      vote_average: (show as any).vote_average || (show as any).imdb_rating
     };
     setRatedSeries(prev => {
       const filtered = prev.filter(r => String(r.tmdb_id) !== String(id));
@@ -282,10 +349,15 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleBlock = (show: any) => {
+  const handleBlock = (show: SelectedShow | TMDBShow) => {
+    if (!show) return;
     const id = show.tmdb_id || show.id;
+    if (!id) {
+      console.error('Cannot block show: missing ID');
+      return;
+    }
     if (blockedSeries.some(b => String(b.tmdb_id) === String(id))) return;
-    setBlockedSeries(prev => [...prev, { tmdb_id: id, title: show.name || show.title }]);
+    setBlockedSeries(prev => [...prev, { tmdb_id: id, title: (show as any).name || (show as any).title || 'Unknown' }]);
     setAiSuggestions(prev => prev.filter(s => String(s.tmdb_id) !== String(id)));
     setWatchList(prev => prev.filter(w => String(w.tmdb_id) !== String(id)));
     setRatedSeries(prev => prev.filter(r => String(r.tmdb_id) !== String(id)));
@@ -294,20 +366,24 @@ const AppContent: React.FC = () => {
     setSelectedShow(null);
   };
 
-  const handleToggleWatchlist = (show: any) => {
+  const handleToggleWatchlist = (show: SelectedShow | TMDBShow) => {
     const id = show.tmdb_id || show.id;
+    if (!id) {
+      console.error('Cannot toggle watchlist: missing ID');
+      return;
+    }
     const isListed = watchList.some(w => String(w.tmdb_id) === String(id));
     if (isListed) {
         setWatchList(prev => prev.filter(w => String(w.tmdb_id) !== String(id)));
     } else {
-        const newItem = {
+        const newItem: LibraryItem = {
             id: id.toString(),
             tmdb_id: id,
-            title: show.name || show.title,
+            title: (show as any).name || (show as any).title || 'Unknown',
             rating: 0,
             poster_path: show.poster_path,
             added_at: Date.now(),
-            vote_average: show.vote_average || show.imdb_rating
+            vote_average: (show as any).vote_average || (show as any).imdb_rating
         };
         setWatchList(prev => [newItem, ...prev]);
         setAiSuggestions(prev => prev.filter(s => String(s.tmdb_id) !== String(id)));
@@ -337,16 +413,46 @@ const AppContent: React.FC = () => {
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
-    if (q.length < 3) {
+    if (q.length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([]);
       return;
-    };
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=1df8a1199d8bb144159aba81cef93f21&query=${encodeURIComponent(q)}&language=${tmdbLangCode}`);
-      const data = await res.json();
-      setSearchResults((data.results || []).filter((r: any) => !blockedSeries.some(b => String(b.tmdb_id) === String(r.id))));
-    } catch (e) { console.debug("Search error", e); }
+    }
+    
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Debounce API call
+    searchTimeoutRef.current = setTimeout(async () => {
+      const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+      if (!TMDB_API_KEY) {
+        console.error('VITE_TMDB_API_KEY is not configured');
+        setSearchResults([]);
+        return;
+      }
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=${tmdbLangCode}`);
+        if (!res.ok) {
+          throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        setSearchResults((data.results || []).filter((r: TMDBShow) => !blockedSeries.some(b => String(b.tmdb_id) === String(r.id))));
+      } catch (e) {
+        console.error("Search error", e);
+        setSearchResults([]);
+      }
+    }, SEARCH_DEBOUNCE_MS);
   };
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleResetData = () => {
     if(confirm(t.reset_confirm || "Are you sure?")) {
