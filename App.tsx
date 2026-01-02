@@ -185,7 +185,7 @@ const AppContent: React.FC = () => {
 
   // --- MERKEZİ STATE (Single Source of Truth) ---
   const [lang, setLang] = useState<'EN' | 'TR'>('TR');
-  const [activeTab, setActiveTab] = useState('DASHBOARD');
+  const [activeTab, setActiveTab] = useState('CATALOG');
   const [libraryTab, setLibraryTab] = useState<'SUGGESTIONS' | 'WATCHLIST' | 'RATED'>('SUGGESTIONS');
   
   const [ratedSeries, setRatedSeries] = useState<LibraryItem[]>([]);
@@ -222,7 +222,7 @@ const AppContent: React.FC = () => {
     const savedMode = localStorage.getItem('appViewMode');
     if (savedMode) {
       setIsDesktopMode(savedMode === 'desktop');
-      setShowModeSelection(false);
+      // Do NOT set setShowModeSelection(false) here, let the user explicitly choose or handle it through handleModeSelect
     }
 
     try {
@@ -287,6 +287,7 @@ const AppContent: React.FC = () => {
   // Catalog fetching logic based on genres/filters
   useEffect(() => {
     if (activeTab === 'CATALOG') {
+      setIsLoading(true); // Set loading state for catalog
       getDiscoverTV(selectedGenreId || undefined, catalogPage, sortBy, tmdbLangCode)
         .then(shows => {
           if (catalogPage === 1) setCatalogShows(shows);
@@ -295,21 +296,24 @@ const AppContent: React.FC = () => {
         .catch(err => {
           console.error('Error fetching catalog:', err);
           setCatalogShows([]);
-        });
+        })
+        .finally(() => setIsLoading(false)); // Reset loading state
     }
   }, [selectedGenreId, catalogPage, activeTab, tmdbLangCode, sortBy]);
 
-  // Separate effect for initial popular TV load
+  // Initial load of popular TV shows if catalog is empty
   useEffect(() => {
-    if (activeTab !== 'CATALOG' && catalogShows.length === 0) {
+    if (catalogShows.length === 0) {
+      setIsLoading(true); // Set loading state for initial popular TV load
       getPopularTV()
         .then(setCatalogShows)
         .catch(err => {
           console.error('Error fetching popular TV:', err);
           setCatalogShows([]);
-        });
+        })
+        .finally(() => setIsLoading(false)); // Reset loading state
     }
-  }, [activeTab]);
+  }, [catalogShows.length]); // Re-run if catalogShows becomes empty (e.g., after an error or reset)
 
   const handleModeSelect = (mode: 'desktop' | 'mobile') => {
     setIsDesktopMode(mode === 'desktop');
@@ -399,7 +403,7 @@ const AppContent: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const recs = await RecommenderService.recommend(ratedSeries, target, lang, minImdb, isUnderratedOnly);
+      const recs = await RecommenderService.recommend(ratedSeries, target, lang, minImdb, isUnderratedOnly, blockedSeries);
       const filtered = recs.filter(rec => !blockedSeries.some(b => String(b.tmdb_id) === String(rec.tmdb_id)));
       setRecommendations(filtered);
       setActiveTab('DISCOVERY');
