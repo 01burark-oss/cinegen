@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { 
-  Search, Wand2, X, Star, Radar, Info, 
+import {
+  Search, Wand2, X, Star, Radar, Info,
   LayoutDashboard, Compass, Layers, Filter,
   BookmarkPlus, Bookmark, Ban, Brain, Award,
   Monitor, Calendar, ExternalLink, Languages, Loader2,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Recommendation } from '../types';
 import { RecommenderService } from '../services/gemini';
+import { CineGenLogo } from '../App';
 
 const TmdbIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190.24 81.52">
@@ -120,7 +121,20 @@ const MovieCardMobile: React.FC<{
   item: any; onShowDetails: (item: any) => void; isWatchlisted: boolean; userRating: number;
 }> = ({ item, onShowDetails, isWatchlisted, userRating }) => (
   <div onClick={() => onShowDetails(item)} className="relative aspect-[2/3] bg-[#121317] rounded-sm overflow-hidden shadow-xl border border-white/5 active:scale-95 transition-all">
-    <img src={`https://image.tmdb.org/t/p/w500${item.poster_path}`} className="w-full h-full object-cover" alt="" />
+    {item.poster_path ? (
+      <img 
+        src={`https://image.tmdb.org/t/p/w500${item.poster_path}`} 
+        className="w-full h-full object-cover" 
+        alt={item.name || item.title || 'Poster'}
+        onError={(e) => {
+          e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><rect fill="%23121317" width="500" height="750"/></svg>';
+        }}
+      />
+    ) : (
+      <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+        <span className="text-zinc-600 text-xs">No Poster</span>
+      </div>
+    )}
     <div className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-1.5 py-1 rounded text-[10px] font-black text-yellow-500 flex items-center gap-1 z-20">
       <Star size={10} fill="currentColor" /> {(item.vote_average?.toFixed(1) || item.imdb_rating || '0.0')}
     </div>
@@ -134,17 +148,40 @@ const MovieCardMobile: React.FC<{
 );
 
 const MobileLayout: React.FC<any> = ({ states, handlers, t, onSwitchToDesktop }) => {
-  const { 
-    activeTab, libraryTab, ratedSeries, watchList, aiSuggestions, recommendations, 
-    catalogShows, genres, selectedGenreId, minImdb, isLoading, analyzingBackdrop, searchQuery, searchResults, 
-    selectedShow, isFilterOpen, isUnderratedOnly 
+  const {
+    activeTab, libraryTab, ratedSeries, watchList, aiSuggestions, recommendations,
+    catalogShows, genres, selectedGenreId, minImdb, isLoading, isCatalogLoading, analyzingBackdrop, searchQuery, searchResults,
+    selectedShow, isFilterOpen, isUnderratedOnly
   } = states;
 
-  const { 
-    setActiveTab, setLibraryTab, setSeedShow, handleGenerate, handleRate, 
-    handleSearch, setSelectedShow, setCatalogPage, handleBlock, handleToggleWatchlist, 
+  const {
+    setActiveTab, setLibraryTab, setSeedShow, handleGenerate, handleRate,
+    handleSearch, setSelectedShow, setCatalogPage, handleBlock, handleToggleWatchlist,
     setSelectedGenreId, setIsFilterOpen, setLang, setMinImdb, setIsUnderratedOnly
   } = handlers;
+
+  // Infinite scroll ref
+  const catalogEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Infinite scroll logic
+  React.useEffect(() => {
+    if (activeTab !== 'CATALOG') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setCatalogPage((prev: number) => prev + 2); // Load 2 pages at a time (40 items)
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (catalogEndRef.current) {
+      observer.observe(catalogEndRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [activeTab, setCatalogPage]);
 
   const getMovieProps = (movie: any) => {
     const id = movie.tmdb_id || movie.id;
@@ -184,7 +221,10 @@ const MobileLayout: React.FC<any> = ({ states, handlers, t, onSwitchToDesktop })
       )}
 
       <header className="sticky top-0 z-40 w-full bg-[#121317]/90 backdrop-blur-xl border-b border-white/5 px-6 h-16 flex items-center justify-between">
-        <h1 className="text-xl font-black italic tracking-tighter text-white uppercase leading-none">CINE_GEN<span className="text-[#5A4AF4]">.</span></h1>
+        <div className="flex items-center gap-3">
+          <CineGenLogo className="w-8 h-8" />
+          <h1 className="text-xl font-black italic tracking-tighter text-white uppercase leading-none">CINE_GEN<span className="text-[#5A4AF4]">.</span></h1>
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-zinc-900/50 p-1 rounded-lg border border-white/5">
             <button onClick={() => setLang('EN')} className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${states.lang === 'EN' ? 'bg-white text-black' : 'text-zinc-500'}`}>EN</button>
@@ -289,7 +329,19 @@ const MobileLayout: React.FC<any> = ({ states, handlers, t, onSwitchToDesktop })
              <div className="grid grid-cols-2 gap-4">
                 {catalogShows.map((show: any) => <MovieCardMobile key={show.id} item={show} onShowDetails={setSelectedShow} {...getMovieProps(show)} />)}
              </div>
-             <button onClick={() => setCatalogPage((p: number) => p + 1)} className="w-full py-5 bg-zinc-900 border border-white/5 text-white font-black uppercase text-[10px] rounded-2xl active:bg-[#5A4AF4] transition-all">{t.load_more}</button>
+
+             {/* Loading indicator for catalog */}
+             {isCatalogLoading && (
+               <div className="flex justify-center items-center py-6">
+                 <div className="flex items-center gap-3 text-zinc-400">
+                   <div className="w-5 h-5 border-2 border-zinc-600 border-t-indigo-500 rounded-full animate-spin"></div>
+                   <span className="text-xs font-medium">Loading more series...</span>
+                 </div>
+               </div>
+             )}
+
+             {/* Infinite scroll trigger - invisible element at the bottom */}
+             <div ref={catalogEndRef} className="h-4" />
           </div>
         ) : activeTab === 'SEARCH' ? (
           <div className="p-6 space-y-6">
@@ -313,7 +365,20 @@ const MobileLayout: React.FC<any> = ({ states, handlers, t, onSwitchToDesktop })
           </div>
           <div className="flex-1 overflow-y-auto custom-scroll pb-32">
             <div className="relative aspect-[4/5] w-full">
-              <img src={`https://image.tmdb.org/t/p/original${selectedShow.poster_path}`} className="w-full h-full object-cover" alt="" />
+              {selectedShow.poster_path ? (
+                <img 
+                  src={`https://image.tmdb.org/t/p/original${selectedShow.poster_path}`} 
+                  className="w-full h-full object-cover" 
+                  alt={selectedShow.name || selectedShow.title || 'Poster'}
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><rect fill="%23121317" width="500" height="750"/></svg>';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                  <span className="text-zinc-600 text-xs">No Poster</span>
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6 space-y-3">
                 <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-zinc-400">

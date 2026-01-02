@@ -2,10 +2,11 @@
 import React, { useRef, useState } from 'react';
 import { Recommendation } from '../types';
 import { RecommenderService } from '../services/gemini';
-import { 
-  Search, Wand2, X, Star, Radar, Info, 
+import { CineGenLogo } from '../App';
+import {
+  Search, Wand2, X, Star, Radar, Info,
   LayoutDashboard, Compass, Layers, Menu, Filter,
-  Bookmark, Ban, Monitor, Calendar, ExternalLink, 
+  Bookmark, Ban, Monitor, Calendar, ExternalLink,
   Languages, Loader2, SlidersHorizontal, Smartphone, Sparkles
 } from 'lucide-react';
 
@@ -130,7 +131,20 @@ const MovieCard: React.FC<{
 }> = ({ item, onShowDetails, onToggleWatchlist, isWatchlisted, userRating }) => (
   <div className="flex flex-col gap-3 group/card w-full animate-in fade-in">
     <div onClick={() => onShowDetails(item)} className="relative aspect-[2/3] bg-[#121317] rounded-sm overflow-hidden group/poster shadow-2xl transition-all hover:scale-105 cursor-pointer ring-1 ring-white/5">
-      <img src={`https://image.tmdb.org/t/p/w500${item.poster_path}`} className="w-full h-full object-cover" alt="" />
+      {item.poster_path ? (
+        <img 
+          src={`https://image.tmdb.org/t/p/w500${item.poster_path}`} 
+          className="w-full h-full object-cover" 
+          alt={item.name || item.title || 'Poster'}
+          onError={(e) => {
+            e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><rect fill="%23121317" width="500" height="750"/></svg>';
+          }}
+        />
+      ) : (
+        <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+          <span className="text-zinc-600 text-xs">No Poster</span>
+        </div>
+      )}
       <div className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-yellow-500 flex items-center gap-1 z-20">
         <Star size={10} fill="currentColor" /> {(item.vote_average?.toFixed(1) || item.imdb_rating || '0.0')}
       </div>
@@ -147,15 +161,38 @@ const MovieCard: React.FC<{
 );
 
 const DesktopLayout: React.FC<any> = ({ states, handlers, t, onSwitchToMobile }) => {
-  const { 
-    activeTab, libraryTab, ratedSeries, watchList, aiSuggestions, recommendations, 
-    catalogShows, isLoading, analyzingBackdrop, searchQuery, searchResults, selectedShow, selectedShowDetails, minImdb, isFilterOpen, isUnderratedOnly
+  const {
+    activeTab, libraryTab, ratedSeries, watchList, aiSuggestions, recommendations,
+    catalogShows, isLoading, isCatalogLoading, analyzingBackdrop, searchQuery, searchResults, selectedShow, selectedShowDetails, minImdb, isFilterOpen, isUnderratedOnly
   } = states;
 
-  const { 
-    setActiveTab, setLibraryTab, setSeedShow, handleGenerate, handleRate, 
+  const {
+    setActiveTab, setLibraryTab, setSeedShow, handleGenerate, handleRate,
     handleSearch, setSelectedShow, setCatalogPage, handleBlock, handleToggleWatchlist, setLang, setMinImdb, setIsFilterOpen, setSelectedGenreId, setIsUnderratedOnly
   } = handlers;
+
+  // Infinite scroll ref
+  const catalogEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Infinite scroll logic
+  React.useEffect(() => {
+    if (activeTab !== 'CATALOG') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setCatalogPage((prev: number) => prev + 2); // Load 2 pages at a time (40 items)
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (catalogEndRef.current) {
+      observer.observe(catalogEndRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [activeTab, setCatalogPage]);
 
   const getMovieProps = (movie: any) => {
     const showId = movie.tmdb_id || movie.id;
@@ -198,7 +235,10 @@ const DesktopLayout: React.FC<any> = ({ states, handlers, t, onSwitchToMobile })
       <aside className="fixed left-0 top-0 h-full w-20 hover:w-64 bg-[#121317]/60 backdrop-blur-3xl border-r border-white/5 z-[300] transition-all duration-300 group flex flex-col items-center py-8">
         <div className="mb-12 flex items-center gap-4 px-6 w-full">
           <div className="w-8 h-8 flex-none bg-[#5A4AF4] rounded-lg flex items-center justify-center text-white shadow-lg shadow-[#5A4AF4]/20"><Menu size={20} /></div>
-          <span className="text-xl font-black italic uppercase text-white opacity-0 group-hover:opacity-100 transition-opacity tracking-tighter">{t.title}</span>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-3">
+            <CineGenLogo className="w-6 h-6" />
+            <span className="text-xl font-black italic uppercase text-white tracking-tighter">{t.title}</span>
+          </div>
         </div>
         <nav className="flex-1 w-full space-y-2 px-4">
           {[
@@ -331,6 +371,19 @@ const DesktopLayout: React.FC<any> = ({ states, handlers, t, onSwitchToMobile })
                 <div className="grid grid-cols-6 gap-8">
                    {catalogShows.map((show: any) => <MovieCard key={show.id} item={show} onShowDetails={setSelectedShow} {...getMovieProps(show)} />)}
                 </div>
+
+                {/* Loading indicator for catalog */}
+                {isCatalogLoading && (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="flex items-center gap-3 text-zinc-400">
+                      <div className="w-6 h-6 border-2 border-zinc-600 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <span className="text-sm font-medium">Loading more series...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Infinite scroll trigger - invisible element at the bottom */}
+                <div ref={catalogEndRef} className="h-4" />
              </div>
            ) : activeTab === 'SEARCH' ? (
              <div className="space-y-12">
@@ -358,7 +411,18 @@ const DesktopLayout: React.FC<any> = ({ states, handlers, t, onSwitchToMobile })
               
               {/* Immersive Backdrop */}
               <div className="absolute inset-0 z-0">
-                <img src={`https://image.tmdb.org/t/p/original${selectedShowDetails?.backdrop_path || selectedShow.poster_path}`} className="w-full h-full object-cover opacity-20 blur-sm scale-110" alt="" />
+                {(selectedShowDetails?.backdrop_path || selectedShow.poster_path) ? (
+                  <img 
+                    src={`https://image.tmdb.org/t/p/original${selectedShowDetails?.backdrop_path || selectedShow.poster_path}`} 
+                    className="w-full h-full object-cover opacity-20 blur-sm scale-110" 
+                    alt={selectedShow.name || selectedShow.title || 'Backdrop'}
+                    onError={(e) => {
+                      e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect fill="%230a0c10" width="1920" height="1080"/></svg>';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#0a0c10]" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/80 to-transparent" />
               </div>
 
@@ -380,7 +444,20 @@ const DesktopLayout: React.FC<any> = ({ states, handlers, t, onSwitchToMobile })
                 <div className="grid grid-cols-12 gap-16">
                    {/* Col 1: High-Res Poster */}
                    <div className="col-span-3 aspect-[2/3] rounded-[1.5rem] overflow-hidden border border-white/10 shadow-2xl rotate-1">
-                      <img src={`https://image.tmdb.org/t/p/original${selectedShow.poster_path}`} className="w-full h-full object-cover" alt="" />
+                      {selectedShow.poster_path ? (
+                        <img 
+                          src={`https://image.tmdb.org/t/p/original${selectedShow.poster_path}`} 
+                          className="w-full h-full object-cover" 
+                          alt={selectedShow.name || selectedShow.title || 'Poster'}
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><rect fill="%23121317" width="500" height="750"/></svg>';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                          <span className="text-zinc-600 text-xs">No Poster</span>
+                        </div>
+                      )}
                    </div>
                    
                    {/* Col 2: Synthesis & Intent */}
