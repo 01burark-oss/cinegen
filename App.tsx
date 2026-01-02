@@ -429,23 +429,23 @@ const AppContent: React.FC = () => {
     
     // Debounce API call
     searchTimeoutRef.current = setTimeout(async () => {
-      const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-      if (!TMDB_API_KEY) {
-        console.error('VITE_TMDB_API_KEY is not configured');
-        setSearchResults([]);
-        return;
+    const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+    if (!TMDB_API_KEY) {
+      console.error('VITE_TMDB_API_KEY is not configured');
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=${tmdbLangCode}`);
+      if (!res.ok) {
+        throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
       }
-      try {
-        const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=${tmdbLangCode}`);
-        if (!res.ok) {
-          throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
-        }
-        const data = await res.json();
+      const data = await res.json();
         setSearchResults((data.results || []).filter((r: TMDBShow) => !blockedSeries.some(b => String(b.tmdb_id) === String(r.id))));
-      } catch (e) {
-        console.error("Search error", e);
-        setSearchResults([]);
-      }
+    } catch (e) {
+      console.error("Search error", e);
+      setSearchResults([]);
+    }
     }, SEARCH_DEBOUNCE_MS);
   };
 
