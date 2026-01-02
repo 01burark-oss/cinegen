@@ -142,18 +142,111 @@ const TRANSLATIONS = {
   }
 };
 
+// Custom SVG Logo Component - Exported for use in layouts
+export const CineGenLogo = ({ className = "" }: { className?: string }) => (
+    <svg width="256" height="256" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+        <defs>
+            <linearGradient id="stremioGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+                <stop offset="0%" stopColor="#7E57C2" /> <stop offset="100%" stopColor="#26C6DA" /> </linearGradient>
+
+            <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+                <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0" result="glowAlpha"/>
+                <feOffset dx="2" dy="4" result="offsetBlur"/>
+                <feMerge>
+                    <feMergeNode in="offsetBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+
+        <g transform="translate(66, 86) scale(0.9)" filter="url(#softGlow)">
+            <rect x="0" y="50" width="40" height="40" rx="4" fill="url(#stremioGrad)" opacity="0.6" />
+            <rect x="0" y="100" width="40" height="40" rx="4" fill="url(#stremioGrad)" opacity="0.8" />
+            <rect x="0" y="150" width="40" height="40" rx="4" fill="url(#stremioGrad)" opacity="0.5" />
+            <rect x="0" y="200" width="40" height="40" rx="4" fill="url(#stremioGrad)" opacity="0.9" />
+            <rect x="0" y="250" width="40" height="40" rx="4" fill="url(#stremioGrad)" opacity="0.7" />
+
+            <rect x="50" y="80" width="30" height="30" rx="3" fill="url(#stremioGrad)" opacity="0.85" />
+            <rect x="50" y="220" width="30" height="30" rx="3" fill="url(#stremioGrad)" opacity="0.85" />
+
+            <path d="M90,70 L140,45 L140,295 L90,270 Z" fill="url(#stremioGrad)" opacity="0.95" />
+            <path d="M150,40 L210,10 L210,330 L150,300 Z" fill="url(#stremioGrad)" />
+
+            <path d="M220,5 L380,170 L220,335 Z" fill="url(#stremioGrad)" />
+            <path d="M220,5 L380,170 L220,170 Z" fill="#FFFFFF" opacity="0.1" />
+        </g>
+    </svg>
+);
+
+const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
+    React.useEffect(() => {
+        const timer = setTimeout(onComplete, 3000); // 3 seconds
+        return () => clearTimeout(timer);
+    }, [onComplete]);
+
+    return (
+        <div className="fixed inset-0 z-[6000] bg-gradient-to-br from-[#0a0c10] via-[#0f1115] to-[#0a0c10] flex flex-col items-center justify-center animate-in fade-in duration-1000">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-20 left-20 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-32 right-16 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-cyan-500/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+            </div>
+
+            {/* Main Content */}
+            <div className="relative z-10 flex flex-col items-center space-y-8">
+                {/* Logo */}
+                <div className="animate-in zoom-in-50 duration-1000 delay-300">
+                    <CineGenLogo className="drop-shadow-2xl" />
+                </div>
+
+                {/* Title */}
+                <div className="text-center animate-in slide-in-from-bottom duration-1000 delay-700">
+                    <h1 className="text-6xl font-black text-white italic tracking-tighter mb-2">
+                        CINE_GEN<span className="text-indigo-400">.</span>
+                    </h1>
+                    <p className="text-sm font-medium text-zinc-400 uppercase tracking-[0.3em]">Next-Gen Discovery</p>
+                </div>
+
+                {/* Loading Bar */}
+                <div className="animate-in fade-in duration-1000 delay-1000">
+                    <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full animate-[loading_3s_ease-in-out]"></div>
+                    </div>
+                </div>
+
+                {/* Made by */}
+                <div className="animate-in fade-in duration-1000 delay-1200 mt-12">
+                    <p className="text-xs font-light text-zinc-500 tracking-wider" style={{ fontFamily: 'Georgia, serif' }}>
+                        made by Burak Özmen
+                    </p>
+                </div>
+            </div>
+
+            <style jsx>{`
+                @keyframes loading {
+                    0% { width: 0%; }
+                    100% { width: 100%; }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 const ModeSelectionScreen = ({ onSelect }: { onSelect: (mode: 'desktop' | 'mobile') => void }) => {
     return (
         <div className="fixed inset-0 z-[5000] bg-[#0f1115] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
              <div className="space-y-6 text-center max-w-sm">
                 <div className="flex flex-col items-center gap-2">
-                   <h1 className="text-5xl font-black text-white italic tracking-tighter">CINE_GEN<span className="text-indigo-500">.</span></h1>
+                   <CineGenLogo className="w-16 h-16 mb-4" />
+                   <h1 className="text-3xl font-black text-white italic tracking-tighter">CINE_GEN<span className="text-indigo-500">.</span></h1>
                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.4em]">Next-Gen Discovery</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 gap-4 w-full pt-8">
-                  <button 
-                    onClick={() => onSelect('mobile')} 
+                  <button
+                    onClick={() => onSelect('mobile')}
                     className="group flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-2xl hover:bg-indigo-600/10 hover:border-indigo-500/50 transition-all text-left"
                   >
                     <div>
@@ -163,8 +256,8 @@ const ModeSelectionScreen = ({ onSelect }: { onSelect: (mode: 'desktop' | 'mobil
                     <Smartphone className="text-zinc-500 group-hover:text-indigo-400 transition-colors" />
                   </button>
 
-                  <button 
-                    onClick={() => onSelect('desktop')} 
+                  <button
+                    onClick={() => onSelect('desktop')}
                     className="group flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-2xl hover:bg-indigo-600/10 hover:border-indigo-500/50 transition-all text-left"
                   >
                     <div>
@@ -181,6 +274,7 @@ const ModeSelectionScreen = ({ onSelect }: { onSelect: (mode: 'desktop' | 'mobil
 
 const AppContent: React.FC = () => {
   const [isDesktopMode, setIsDesktopMode] = useState<boolean>(true);
+  const [showSplash, setShowSplash] = useState<boolean>(false);
   const [showModeSelection, setShowModeSelection] = useState<boolean>(true);
 
   // --- MERKEZİ STATE (Single Source of Truth) ---
@@ -200,6 +294,7 @@ const AppContent: React.FC = () => {
   const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
   const [catalogPage, setCatalogPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [analyzingBackdrop, setAnalyzingBackdrop] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBShow[]>([]);
@@ -224,13 +319,15 @@ const AppContent: React.FC = () => {
       setIsDesktopMode(savedMode === 'desktop');
       // Do NOT set setShowModeSelection(false) here, let the user explicitly choose or handle it through handleModeSelect
     }
+  }, []);
 
+  useEffect(() => {
     try {
       const savedRated = localStorage.getItem('ratedSeries');
       const savedWatch = localStorage.getItem('watchList');
       const savedBlocked = localStorage.getItem('blockedSeries');
       const savedSuggestions = localStorage.getItem('aiSuggestions');
-      
+
       if (savedRated) {
         const parsed = JSON.parse(savedRated);
         if (Array.isArray(parsed)) setRatedSeries(parsed);
@@ -287,38 +384,55 @@ const AppContent: React.FC = () => {
   // Catalog fetching logic based on genres/filters
   useEffect(() => {
     if (activeTab === 'CATALOG') {
-      setIsLoading(true); // Set loading state for catalog
-      getDiscoverTV(selectedGenreId || undefined, catalogPage, sortBy, tmdbLangCode)
-        .then(shows => {
-          if (catalogPage === 1) setCatalogShows(shows);
-          else setCatalogShows(prev => [...prev, ...shows]);
-        })
-        .catch(err => {
+      // Don't show synthesizing screen for catalog, use separate loading state
+      const loadCatalogPage = async (page: number) => {
+        setIsCatalogLoading(true);
+        try {
+          // Load 2 pages for 40 results each time
+          const [page1, page2] = await Promise.all([
+            getDiscoverTV(selectedGenreId || undefined, page, sortBy, tmdbLangCode),
+            getDiscoverTV(selectedGenreId || undefined, page + 1, sortBy, tmdbLangCode)
+          ]);
+
+          const newShows = [...page1, ...page2];
+          if (page === 1) setCatalogShows(newShows);
+          else setCatalogShows(prev => [...prev, ...newShows]);
+        } catch (err) {
           console.error('Error fetching catalog:', err);
-          setCatalogShows([]);
-        })
-        .finally(() => setIsLoading(false)); // Reset loading state
+          if (page === 1) setCatalogShows([]);
+        } finally {
+          setIsCatalogLoading(false);
+        }
+      };
+
+      loadCatalogPage(catalogPage);
     }
   }, [selectedGenreId, catalogPage, activeTab, tmdbLangCode, sortBy]);
 
   // Initial load of popular TV shows if catalog is empty
   useEffect(() => {
     if (catalogShows.length === 0) {
-      setIsLoading(true); // Set loading state for initial popular TV load
+      setIsCatalogLoading(true); // Use catalog loading state for initial load too
       getPopularTV()
         .then(setCatalogShows)
         .catch(err => {
           console.error('Error fetching popular TV:', err);
           setCatalogShows([]);
         })
-        .finally(() => setIsLoading(false)); // Reset loading state
+        .finally(() => setIsCatalogLoading(false));
     }
   }, [catalogShows.length]); // Re-run if catalogShows becomes empty (e.g., after an error or reset)
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    // Ana uygulama gösterilsin, mode selection tekrar açılmasın
+  };
 
   const handleModeSelect = (mode: 'desktop' | 'mobile') => {
     setIsDesktopMode(mode === 'desktop');
     localStorage.setItem('appViewMode', mode);
     setShowModeSelection(false);
+    setShowSplash(true); // Mode seçildikten sonra splash screen göster
   };
 
   const handleSwitchMode = () => {
@@ -468,9 +582,9 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const sharedStates = { 
-    lang, activeTab, libraryTab, ratedSeries, watchList, aiSuggestions, 
-    blockedSeries, seedShow, recommendations, catalogShows, isLoading, 
+  const sharedStates = {
+    lang, activeTab, libraryTab, ratedSeries, watchList, aiSuggestions,
+    blockedSeries, seedShow, recommendations, catalogShows, isLoading, isCatalogLoading,
     analyzingBackdrop, searchQuery, searchResults, selectedShow, selectedShowDetails,
     genres, selectedGenreId, minImdb, isUnderratedOnly, isFilterOpen, sortBy
   };
@@ -480,6 +594,10 @@ const AppContent: React.FC = () => {
     handleGenerate, handleRate, handleSearch, setSelectedShow, setCatalogPage,
     handleBlock, handleToggleWatchlist, setSelectedGenreId, setMinImdb, setIsUnderratedOnly, setIsFilterOpen, setSortBy
   };
+
+  if (showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
 
   if (showModeSelection) {
     return <ModeSelectionScreen onSelect={handleModeSelect} />;
